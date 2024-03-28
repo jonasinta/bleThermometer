@@ -21,15 +21,16 @@
 
 // See the following for generating UUIDs:
 // https://www.uuidgenerator.net/
-#define SERVICE_temperatureSender_UUID        "d586aca9-12be-4e03-8ad7-b0106ba6018f"
+#define SERVICE_poolFloater_UUID        "d586aca9-12be-4e03-8ad7-b0106ba6018f"
 #define CHARACTERISTIC_tempC_UUID "42b5ebfe-a946-4f85-ba49-03495b0aa5ee"
+#define CHARACTERISTIC_setEpoch "setEpochNotUUID"
 
-BLECharacteristic *pCharacteristic; //global for the characterisy=tic, that way i can access it in loop
+BLECharacteristic *pCharacteristicValuesStructure; //global for the characterisy=tic, that way i can access it in loop
 
 //time stuff library import and globals....
 #include <ESP32Time.h>
 ESP32Time rtc;
-long long epoch;
+RTC_NOINIT_ATTR  unsigned  long epoch ;
 
 bool isConnected = false;
 
@@ -65,15 +66,15 @@ class ServersCallbacks: public BLEServerCallbacks {
 	void onConnect(BLEServer *pServer) {
 		isConnected = true;
 		digitalWrite(LED, HIGH);
-		log_d("*********");
-		log_d("Co nected");
+		log_i("*********");
+		log_i("Co nected");
 
 	}
 	void onDisconnect(BLEServer *pServer) {
 		isConnected = false;
 		digitalWrite(LED, LOW);
-		log_d("*********");
-		log_d("Diss co nected: ");
+		log_i("*********");
+		log_i("Diss co nected: ");
 	}
 
 };
@@ -83,47 +84,51 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 		std::string value = pCharacteristic->getValue();
 		BLEUUID gotUUID = pCharacteristic->getUUID();
 		if (value.length() > 0) {
-			log_d("*********");
-			log_d("New value: ");
+			log_i("*********");
+			log_i("New value: ");
 			for (int i = 0; i < value.length(); i++){
-				log_d("",value[i]);
-				log_d("",i);
+				log_d("uid bit %i;",value[i]);
+				log_d("bit index %i;",i);
 			}
 
 
 			log_d("*********");
 			String doing = value.c_str();
 			int length = doing.length();
+			log_i("epoch before trim %s",doing);
 			doing.remove((length - 3), 3); // trim mS from the epoch
+			log_i("epoch after trim %s",doing);
 			epoch = doing.toInt();
 
-			log_d("",(long) epoch, 10);
+			log_i("epochPrint %Ld",(long) epoch, 10);
 			if (epoch < 2524611600L && epoch > 946688400L) {
 
 				rtc.setTime(epoch, 0);
+				log_i("epochPrint in epoch >150.... %Ld commer 10 means nothing %d",(long) epoch, 10);
 
 			} //close if check
 		}
 		if (gotUUID.bitSize() > 0) {
 			std::string valueUUID = gotUUID.toString();
 			for (int i = 0; i < valueUUID.length(); i++){
-				log_d("",valueUUID[i]);}
+				log_d("UUID; %d",valueUUID[i]);}
 
 		}
-log_d("hi there");
+log_i("hi there");
+// nodered cant send giveTime when device is resetting all the tome, so under these circumstances, this function is useless
 		if (value == "giveTime") {
 			log_d("the time now is");
-			log_d("",rtc.getDateTime());
+			log_d("time %s",rtc.getDateTime());
 		}
 	}
 	void onRead(BLECharacteristic *pCharacteristic) {
-		log_d(	"++++++++Read from client has just happened+++++++++++++++++++");
-
+		log_i(	"++++++++Read from client has just happened+++++++++++++++++++");
+printBuffer();
 	}
 };
 
 void printBuffer(void) {
-
+log_i("in print buffer function");
 
 	while (! bufferCircle.isEmpty()) {
 		char tempString[200];
@@ -131,7 +136,7 @@ void printBuffer(void) {
 
 		//jsonify
 
-		StaticJsonDocument<96> doc;
+		JsonDocument doc;
 
 		doc["count"] = temp.epoch;
 		doc["adcvalue"] = temp.tempC;
@@ -141,10 +146,11 @@ void printBuffer(void) {
 
 		serializeJson(doc, tempString);
 		//serializeJson(doc, Serial);
-		log_d("",tempString);
+		log_i("string tpo send to node3red %s",tempString);
 
-		pCharacteristic->setValue(tempString);
-		pCharacteristic->notify();
+		pCharacteristicValuesStructure->setValue(tempString);
+		pCharacteristicValuesStructure->notify();
+		log_i("just after characheristic set value and notify %s",tempString);
 		delay(50);
 
 	} //closew while
@@ -206,8 +212,8 @@ float getTemperature(int count) {
 	float steinhartVo1  = CalcSteinhart(voltsVo1, voltsVcc);//convert the voltage measured to deg. C
 	steinhartVo0 += TRIM_TEMP_ADC0;
 	steinhartVo1 += TRIM_TEMP_ADC1;
-	log_w("voltsVo %fV, voltsVo1 %fV ,voltsVcc %fV.", voltsVo0, voltsVo1,  voltsVcc);
-	log_w("Temperature top %f C, Temperature bot %f C, rtherm %d Ohm, batt volt %fV", steinhartVo0, steinhartVo1, Rtherm,
+	log_d("voltsVo %fV, voltsVo1 %fV ,voltsVcc %fV.", voltsVo0, voltsVo1,  voltsVcc);
+	log_i("Temperature top %f C, Temperature bot %f C, rtherm %d Ohm, batt volt %fV", steinhartVo0, steinhartVo1, Rtherm,
 			voltsBat);
 //put the battery voltage into the transmission structure
 	boing.battV = voltsBat;
@@ -256,18 +262,18 @@ void setup() {
 	BLEDevice::init("PoolThermometer");
 	BLEServer *pServer = BLEDevice::createServer();
 	pServer->setCallbacks(new ServersCallbacks);
-	BLEService *pService = pServer->createService(SERVICE_temperatureSender_UUID);
-	pCharacteristic = pService->createCharacteristic(CHARACTERISTIC_tempC_UUID,
+	BLEService *pService = pServer->createService(SERVICE_poolFloater_UUID);
+	pCharacteristicValuesStructure = pService->createCharacteristic(CHARACTERISTIC_tempC_UUID,
 			BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE
 					| BLECharacteristic::PROPERTY_NOTIFY);
-	pCharacteristic->setNotifyProperty(true);
-	pCharacteristic->setValue("um");
-	pCharacteristic->setCallbacks(new MyCallbacks());
+	//pCharacteristicValuesStructure->setNotifyProperty(true);
+	//pCharacteristicValuesStructure->setValue("um");
+	pCharacteristicValuesStructure->setCallbacks(new MyCallbacks());
 
 	pService->start();
 	BLEAdvertising *pAdvertising = pServer->getAdvertising(); // this still is working for backward compatibility
 	//BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-	pAdvertising->addServiceUUID(SERVICE_temperatureSender_UUID);
+	pAdvertising->addServiceUUID(SERVICE_poolFloater_UUID);
 	pAdvertising->setScanResponse(true);
 	pAdvertising->setMinPreferred(0x06); // functions that help with iPhone connections issue
 	pAdvertising->setMinPreferred(0x12);
@@ -308,16 +314,21 @@ void setup() {
 void loop() {
 	esp_task_wdt_reset();
 
-	log_i("memory report Free Heap %d, Free Sketch Space %d", ESP.getFreeHeap(),ESP.getFreeSketchSpace());
+	log_d("memory report Free Heap %d, Free Sketch Space %d", ESP.getFreeHeap(),ESP.getFreeSketchSpace());
 //log_i("memory report Free Heap %d, Free Sketch Space %d", ESP.getFreeHeap(),ESP.getFreeSketchSpace());
 	delay(looptimedelay * 1000);
-	getTemperature(10);
+	getTemperature(10);  //this function loads data into the structure from adc
 
 	////esp_task_wdt_reset();
 	//do not store data if epoch has not been yet set- i.e less than 1.5 billion equivalent of july 14 2017
-	if (epoch > 1500000000) {
+	log_i("Just before if epoch > 2017 (1500000000) %Lu ", rtc.getEpoch());
+			
+	if (rtc.getEpoch() > 1500000000) {
+		//if (1) {
 		//if (epoch > 1) {
+			
 		bufferCircle.unshift(boing); //unshift will add data to the ringbuffer (boing)
+		log_i("Just after if epoch > 2017 (1500000000) %Lu ", rtc.getEpoch());
 	}
 
 	//print time to serial port=======================================
@@ -329,12 +340,13 @@ void loop() {
 
 
 	// test connected
-	log_i("my storage buffer has %d units stored of %d", bufferCircle.size(), bufferCircle.capacity);
+	
 	if (isConnected) {
+		log_i("inside isConnected-printBuffer llop /n my storage buffer has %d units stored of %d", bufferCircle.size(), bufferCircle.capacity);
 		printBuffer(); //routine to disharge buffer to BLE and client
 	}
-	esp_bluedroid_disable;
-	esp_bluedroid_deinit();
+	//esp_bluedroid_disable;
+	//esp_bluedroid_deinit();
 	esp_deep_sleep_start();  //make it sleep deep
 	//esp_light_sleep_start();  //make it sleep light
 }

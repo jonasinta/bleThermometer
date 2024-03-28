@@ -477,7 +477,7 @@
                 ]
             },
             "defines": [
-                "PLATFORMIO=60113",
+                "PLATFORMIO=60114",
                 "ARDUINO_LOLIN32",
                 "CORE_DEBUG_LEVEL=3",
                 "HAVE_CONFIG_H",
