@@ -28,6 +28,8 @@
 #define CHARACTERISTIC_setEpoch "8a4fb731-ea09-4d0c-8fb8-164034997a82"
 #define CHARACTERISTIC_rand_characteristic_uuid "342810fb-0018-48bc-96a5-2d0de82fe297"
 
+#define ENABLE_ADC
+
 
 BLECharacteristic pCharacteristicValuesStructure(CHARACTERISTIC_tempC_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);	   // global for the characterisy=tic, that way i can access it in loop
 BLECharacteristic pCharacteristicValuesStructureEpoch(CHARACTERISTIC_setEpoch, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY); // global for the characterisy=tic, that way i can access it in loop
@@ -291,6 +293,18 @@ float getTemperature(int count) {
 
 return steinhartVo0;
 }
+
+// function for when testing and notusing ADC i.e. using device without ADC attached and simulating with randomish numbers
+void getNoADCTemperature() {
+
+	boing.battV = random(2, 4.2);
+	boing.epoch = rtc.getEpoch();
+	boing.tempC = random(5, 35);
+	boing.tempCa = boing.tempC +5;
+	log_i("No ADC mode, random  data sent);");
+};
+
+
 /// print out thew device BT address
 void printDeviceAddress() {
 
@@ -374,6 +388,7 @@ BLEDevice::startAdvertising();
 	//setup LCD setup LCD  setup LCD  setup LCD  setup LCD  setup LCD  setup LCD  setup LCD  setup LCD
 
 	log_d("about to  setgain on ads and then enter loop");
+	#ifdef ENABLE_ADC
 	///////////////////////setup for the external adc and temperature///////////////////////////////////////////////////////////////////////////////////////////////////
 	////esp_task_wdt_reset();
 	//	ads.setGain(GAIN_TWO);        // 2x gain   +/- 2.048V  1 bit = 1mV      0.0625mV
@@ -382,6 +397,7 @@ BLEDevice::startAdvertising();
 		log_d("Failed to initialize ADS.");
 
 	}
+	#endif
 	////esp_task_wdt_reset();
 	printDeviceAddress();
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -399,6 +415,11 @@ void loop() {
 	delay(looptimedelay * 1000);
 //	getTemperature(10);  //this function loads data into the structure from adc
 //Serial.printf("tempTop%f,temp_bot%f,batV%f,|t", boing.tempC, boing.tempCa, boing.battV);
+#ifdef ENABLE_ADC
+	getTemperature(10);  //this function loads data into the structure from adc
+	#else
+	getNoADCTemperature();
+	#endif
 // Plot a sinus
   Serial.print("temptop");
   Serial.println(boing.tempC);
@@ -413,6 +434,7 @@ void loop() {
   // Plot a cosinus
   Serial.print(">batV:");
   Serial.println( boing.battV);
+ 
 
 
 	////esp_task_wdt_reset();
