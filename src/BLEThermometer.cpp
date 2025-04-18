@@ -229,9 +229,7 @@ log_i("in print buffer function");
 	//delay(2000);
 } //close void printBuffer(void)
 
-void messageReceived(String &topic, String &payload) {
-  //blank unused function
-}
+
 
 
 int16_t readAdc(int counts, int channel) {
