@@ -106,14 +106,9 @@ class MyCallbacks2: public BLECharacteristicCallbacks {
 		std::string value = pCharacteristic->getValue();
 		BLEUUID gotUUID = pCharacteristic->getUUID();
 		if (value.length() > 0) {
-			log_i("*********");
-			log_i("New value: ");
-			for (int i = 0; i < value.length(); i++){
-				log_d("uid bit %i;",value[i]);
-				log_d("bit index %i;",i);
-			}
+			
 
-esp_task_wdt_reset();
+			esp_task_wdt_reset();
 			log_d("*********");
 			String doing = value.c_str();
 			int length = doing.length();
@@ -130,12 +125,17 @@ esp_task_wdt_reset();
 
 			} //close if check
 		}
+
+		/*
 		if (gotUUID.bitSize() > 0) {
 			std::string valueUUID = gotUUID.toString();
 			for (int i = 0; i < valueUUID.length(); i++){
-				log_d("UUID; %d",valueUUID[i]);}
+				log_d("UUID; %d",valueUUID[i]);
+			;
+			}
 
 		}
+		*/
 log_i("hi there");
 // nodered cant send giveTime when device is resetting all the tome, so under these circumstances, this function is useless
 		if (value == "giveTime") {
@@ -470,6 +470,6 @@ void loop() {
 	//esp_bluedroid_deinit();
 	delay(100);
 	log_i("end of loop and sleep coming now------------------------------------------------------");
-	//esp_deep_sleep_start();  //make it sleep deep
+	esp_deep_sleep_start();  //make it sleep deep
 	//esp_light_sleep_start();  //make it sleep light
 }
