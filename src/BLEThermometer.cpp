@@ -6,8 +6,12 @@
 
 
 
-//circularBuffer include
-#include <CircularBuffer.hpp>
+//circularBuffer include  (arduino templates version that does not do persistant within rtc-slow memory)
+//#include <CircularBuffer.hpp>
+
+//circularBuffer include  (Jonas s buffer that does do persistant within rtc-slow memory)
+#include <CircularBuffer.h>
+
 
 #include <ArduinoJson.h>
 //for BT address
@@ -31,6 +35,8 @@
 #define ENABLE_ADC
 
 
+
+
 BLECharacteristic pCharacteristicValuesStructure(CHARACTERISTIC_tempC_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);	   // global for the characterisy=tic, that way i can access it in loop
 BLECharacteristic pCharacteristicValuesStructureEpoch(CHARACTERISTIC_setEpoch, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY); // global for the characterisy=tic, that way i can access it in loop
 
@@ -41,7 +47,8 @@ BLEUUID setEpochUUID = BLEUUID(CHARACTERISTIC_setEpoch);
 //time stuff library import and globals....
 #include <ESP32Time.h>
 ESP32Time rtc;
-RTC_NOINIT_ATTR  unsigned  long epoch ;
+RTC_NOINIT_ATTR  unsigned  long epoch = 0;
+RTC_NOINIT_ATTR boolean isEpochSet = false;
 
 bool isConnected = false;
 
@@ -58,18 +65,17 @@ struct DataSend
 	float battV;
 }  boing;
 
-/*struct RTC_NOINIT_ATTR DataSend {
-	unsigned long epoch;
-	float tempC;
-	float tempCa;
-	float battV;
-}  boing;
-*/
+DATASEND sendstruct {
+    0, // epoch
+    0.0f, // Float1
+    0.0f, // Float2
+    0.0f, // Float3
+   
+};
 
 int reset_reason=0; //reste reason integer for reporting back to DB
 
-// CircularBuffer<DataSend, 220> RTC_NOINIT_ATTR bufferCircle;
-CircularBuffer<DataSend, 110> RTC_NOINIT_ATTR bufferCircle ;
+
 
 //for BT address
 const uint8_t* point = esp_bt_dev_get_address();
@@ -201,18 +207,18 @@ esp_task_wdt_reset();
 void printBuffer(void) {
 log_i("in print buffer function");
 
-	while (! bufferCircle.isEmpty()) {
+	while (! isBufferEmpty()) {
 		char tempString[200];
-		struct DataSend temp = bufferCircle.pop();
+		 popFromBuffer(&sendstruct); //pop the data from the buffer into a temp structure
 
 		//jsonify
 
 		JsonDocument doc;
 
-		doc["count"] = temp.epoch;
-		doc["adcvalue"] = temp.tempC;
-		doc["adcvalue1"] = temp.tempCa;
-		doc["battV"] = temp.battV;
+		doc["count"] = sendstruct.epoch;
+		doc["adcvalue"] = sendstruct.Float1;
+		doc["adcvalue1"] = sendstruct.Float2;
+		doc["battV"] = sendstruct.Float3;
 		doc["reset_reason"] = reset_reason;
 
 		serializeJson(doc, tempString);
@@ -289,6 +295,22 @@ float getTemperature(int count) {
 	boing.tempC = steinhartVo0;
 	boing.tempCa = steinhartVo1;
 
+// put the data into the circular buffer
+	sendstruct.epoch = boing.epoch;
+	sendstruct.Float1 = boing.tempC;
+	sendstruct.Float2 = boing.tempCa;
+	sendstruct.Float3 = boing.battV;
+
+	if (isBufferFull()) {
+		log_w("buffer full, not pushing data to buffer");
+	} else {
+		pushToBuffer(&sendstruct);
+		log_i("pushed data to buffer");
+	}
+	//printBuffer(); //print the buffer contents to bluetooth
+	esp_task_wdt_reset();
+	//log_i("end of getTemperature function");
+
 return steinhartVo0;
 }
 
@@ -300,6 +322,11 @@ void getNoADCTemperature() {
 	boing.tempC = random(5, 35);
 	boing.tempCa = boing.tempC +5;
 	log_i("No ADC mode, random  data sent);");
+	//put the battery voltage into the transmission structure
+	sendstruct.epoch = boing.epoch;	
+	sendstruct.Float1 = boing.tempC;
+	sendstruct.Float2 = boing.tempCa;
+	sendstruct.Float3 = boing.battV;		
 };
 
 
@@ -418,9 +445,7 @@ void loop() {
 	#else
 	getNoADCTemperature();
 	#endif
-// Plot a sinus
-  Serial.print("temptop");
-  Serial.println(boing.tempC);
+
  // Plot a sinus
   Serial.print(">temptop:");
   Serial.println( boing.tempC);
@@ -439,14 +464,20 @@ void loop() {
 	//do not store data if epoch has not been yet set- i.e less than 1.5 billion equivalent of july 14 2017
 	log_i("Just before if epoch > 2017 (1500000000) %Lu ", rtc.getEpoch());
 			
-	//if (rtc.getEpoch() > 1500000000) {
-		if (1) {
+	if (rtc.getEpoch() > 1500000000) {
+	//	if (1) {
 		//if (epoch > 1) {
+			Serial.println( "epoch is greater than 1500000000, so storing data in buffer");
+		log_i("epoch is greater than 1500000000, so storing data in buffer");
 			
-		bufferCircle.unshift(boing); //unshift will add data to the ringbuffer (boing)
+		pushToBuffer(&sendstruct); //unshift will add data to the ringbuffer (boing)
 		log_i("Just after if epoch > 2017 (1500000000) %Lu ", rtc.getEpoch());
 		esp_task_wdt_reset();
-	}
+	} else {
+		log_i("epoch is less than 1500000000, so not storing data in buffer");
+		Serial.println("epoch is less than 1500000000, so not storing data in buffer");
+	} //close else
+	//==============================================================
 
 	//print time to serial port=======================================
 	log_d("loop delay here is:  %d seconds\n", looptimedelay);
