@@ -1,7 +1,10 @@
 #include "CircularBuffer.h"
 
 // RTC slow memory variables
-RTC_DATA_ATTR uint16_t circularBuffer[BUFFER_SIZE] = {0};
+RTC_DATA_ATTR uint16_t EpochBuff[BUFFER_SIZE] = {0};
+RTC_DATA_ATTR float Float1[BUFFER_SIZE] = {0};
+RTC_DATA_ATTR float Float2[BUFFER_SIZE] = {0};
+RTC_DATA_ATTR float Float3[BUFFER_SIZE] = {0};
 RTC_DATA_ATTR size_t head = 0;
 RTC_DATA_ATTR size_t tail = 0;
 RTC_DATA_ATTR size_t itemCount = 0;
@@ -11,7 +14,10 @@ RTC_DATA_ATTR bool isBufferInitialized = false;
 void initCircularBuffer() {
     if (!isBufferInitialized) {
         for (size_t i = 0; i < BUFFER_SIZE; ++i) {
-            circularBuffer[i] = 0;
+            EpochBuff[i] = 0;
+            Float1[i] = 0.0f;
+            Float2[i] = 0.0f;
+            Float3[i] = 0.0f;
         }
         head = 0;
         tail = 0;
@@ -21,32 +27,45 @@ void initCircularBuffer() {
 }
 
 // Push a value into the buffer
-bool pushToBuffer(uint16_t value) {
+bool pushToBuffer(DATASEND * value) {
     if (isBufferFull()) {
         return false; // Buffer is full
     }
-    circularBuffer[head] = value;
+    EpochBuff[head] = value ->epoch;
+    Float1[head] = value ->Float1;
+    Float2[head] = value ->Float2;
+    Float3[head] = value ->Float3;
     head = (head + 1) % BUFFER_SIZE;
     itemCount++;
     return true;
 }
 
 // Pop a value from the buffer
-bool popFromBuffer(uint16_t* value) {
+bool popFromBuffer(DATASEND * value) {
     if (isBufferEmpty()) {
         return false; // Buffer is empty
     }
-    *value = circularBuffer[tail];
+    value ->epoch= EpochBuff[tail];
+    value ->Float1 = Float1[tail];
+    value ->Float2 = Float2[tail];
+    value ->Float3 = Float3[tail];
     tail = (tail + 1) % BUFFER_SIZE;
     itemCount--;
     return true;
 }
 
 // Iterate over the buffer and apply a callback function
-void iterateBuffer(void (*callback)(uint16_t)) {
+void iterateBuffer(void (*callback)(DATASEND  value)) {
     size_t current = tail;
     for (size_t i = 0; i < itemCount; ++i) {
-        callback(circularBuffer[current]);
+        DATASEND value;
+        value.epoch = EpochBuff[current];
+        value.Float1 = Float1[current];
+        value.Float2 = Float2[current];
+        value.Float3 = Float3[current];
+        // Call the callback function with the current value
+        
+        callback(value);
         current = (current + 1) % BUFFER_SIZE;
     }
 }

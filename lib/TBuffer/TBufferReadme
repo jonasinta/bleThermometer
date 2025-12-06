@@ -1,0 +1,48 @@
+to setup TBuffer in project
+
+1. add Tbuffer .cpp and .h libarary files to the lib folder
+2. in your main .cpp file add #include "CircularBuffer.h"
+3. buffer needs a buffer structure in globals for passing data; 
+//buffer globals
+
+DATASEND sendstruct {
+    0, // epoch
+    0.0f, // Float1
+    0.0f, // Float2
+    0.0f, // Float3
+   
+};
+
+4. the interation function needs this for its callback, im not sure if i could move that to the lobrary 
+.cpp but i have it in the main cpp, here it is;
+void myBufferPrintout(DATASEND datas) {
+   Serial.print("Epoch: ");
+    Serial.print(datas.epoch);
+    Serial.print(", Float1: ");
+    Serial.print(datas.Float1);
+    Serial.print(", Float2: ");
+    Serial.print(datas.Float2);
+    Serial.print(", Float3: ");
+    Serial.print(datas.Float3);
+    
+  
+    Serial.println(" ");
+}
+adjust or tweak accordingly....
+
+5. chuck the initialise command into  the setup loop;
+// Initialize the circular buffer
+  initCircularBuffer();  // from circularBuffer.h
+
+6. now we can pushToBuffer(&sendstruct) and popFromBuffer(&sendstruct) using the sendstruct structure to encode and decode data to and from commands
+
+7. we could use iterate;
+// Print buffer contents
+    Serial.println("Buffer contents:");
+    iterateBuffer(&myBufferPrintout); // from circularBuffer.h
+    Serial.println();
+
+8. and we have if required;
+bool isBufferFull();
+bool isBufferEmpty();
+

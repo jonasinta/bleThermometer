@@ -132,25 +132,13 @@ class MyCallbacks2: public BLECharacteristicCallbacks {
 			} //close if check
 		}
 
-		/*
-		if (gotUUID.bitSize() > 0) {
-			std::string valueUUID = gotUUID.toString();
-			for (int i = 0; i < valueUUID.length(); i++){
-				log_d("UUID; %d",valueUUID[i]);
-			;
-			}
-
-		}
-		*/
+		
 log_i("hi there");
 // nodered cant send giveTime when device is resetting all the tome, so under these circumstances, this function is useless
-		if (value == "giveTime") {
-			log_d("the time now is");
-			log_d("time %s",rtc.getDateTime());
-		}
+		
 	}
 	void onRead(BLECharacteristic *pCharacteristic) {
-		log_i(	"++++++++Read from client has just happened+++++++++++++++++++");
+		Serial.println(	"++++++++Read from client has just happened+++++++++++++++++++");
 esp_task_wdt_reset();
 	}
 };
@@ -501,6 +489,6 @@ void loop() {
 	//esp_bluedroid_deinit();
 	delay(100);
 	log_i("end of loop and sleep coming now------------------------------------------------------");
-	esp_deep_sleep_start();  //make it sleep deep
+	//esp_deep_sleep_start();  //make it sleep deep
 	//esp_light_sleep_start();  //make it sleep light
 }
